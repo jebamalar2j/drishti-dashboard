@@ -319,46 +319,41 @@
 </footer>
 
 <script>
-const SHEET_ID = "1Km1v-b_MLlXCnesSldXUO7XxB41Uyi8EHZpkeM4pUNM";
-const ALERT_LOG_GID = "514880382";
+const API URL = "https://script.google.com/macros/s/AKfycbwQfLYJUh3RVcS3RnzBCBv17-y1hts4ivOWpU5644TswOzKuZ93u6oJC_3sms6Ngg9X/exec";
 
 let allAlerts = [];
 let villageChart, statusChart, vaccineChart, ashaChart;
 
 async function loadData() {
-  document.getElementById("loading").style.display = "block";
+  document.getElementById("loadingScreen").style.display = "flex";
   document.getElementById("dashboard").style.display = "none";
 
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${ALERT_LOG_GID}`;
-    const res  = await fetch(url);
-    const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
+    const res  = await fetch(API_URL);
+    const json = await res.json();
 
-    const cols = json.table.cols.map(c => c.label);
-    const rows = json.table.rows;
+    if (json.status !== "ok") throw new Error("API returned error");
 
-    allAlerts = rows
-      .filter(r => r && r.c && r.c[0] && r.c[0].v)
-      .map(r => {
-        const obj = {};
-        cols.forEach((col, i) => {
-          obj[col] = r.c[i] ? (r.c[i].v !== null ? r.c[i].v : "") : "";
-        });
-        return obj;
+    allAlerts = json.data;
+
+    populateVillageFilter(allAlerts);
+    renderDashboard(allAlerts);
+
+    document.getElementById("lastRefresh").textContent =
+      new Date().toLocaleString("en-IN", {
+        day:"2-digit", month:"short", year:"numeric",
+        hour:"2-digit", minute:"2-digit"
       });
 
-    renderDashboard(allAlerts);
-    document.getElementById("lastRefresh").textContent =
-      "Last refreshed: " + new Date().toLocaleString("en-IN");
-
   } catch(e) {
-    document.getElementById("loading").innerHTML =
-      `<p style="color:#EF4444">Error loading data: ${e.message}<br>Make sure your sheet is set to Anyone with link can view.</p>`;
+    document.getElementById("loadingScreen").innerHTML = `
+      <div class="error-box">
+        <strong>Connection Error</strong><br>${e.message}
+      </div>`;
     return;
   }
 
-  document.getElementById("loading").style.display = "none";
+  document.getElementById("loadingScreen").style.display = "none";
   document.getElementById("dashboard").style.display = "block";
 }
 
