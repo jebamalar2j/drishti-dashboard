@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRISHTI — Supervisor Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #080D14;
+  --surface:  #0E1521;
+  --surface2: #162030;
+  --border:   #1E2D40;
+  --red:      #F43F5E;
+  --amber:    #F59E0B;
+  --green:    #10B981;
+  --blue:     #38BDF8;
+  --purple:   #A78BFA;
+  --text:     #E2EAF4;
+  --muted:    #4B6280;
+  --faint:    #1A2740;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+header {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(180deg, #0A1020 0%, transparent 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 36px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.brand { display: flex; align-items: center; gap: 16px; }
+.pulse-ring {
+  position: relative;
+  width: 22px; height: 22px;
+  flex-shrink: 0;
+}
+.pulse-ring::before, .pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--red);
+}
+.pulse-ring::after {
+  background: transparent;
+  border: 2px solid var(--red);
+  animation: ripple 2s ease-out infinite;
+}
+@keyframes ripple {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.brand-text h1 {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #F8FAFC;
+}
+.brand-text p { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; margin-top: 2px; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.pilot-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--purple);
+  border: 1px solid var(--purple);
+  padding: 4px 12px;
+  border-radius: 3px;
+  background: #A78BFA11;
+}
+#lastRefresh { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
+.refresh-btn {
+  background: var(--faint);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  transition: all 0.2s;
+}
+.refresh-btn:hover { background: var(--surface2); border-color: var(--blue); color: var(--blue); }
+.container {
+  position: relative;
+  z-index: 1;
+  padding: 28px 36px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  gap: 20px;
+}
+.loader {
+  width: 44px; height: 44px;
+  border: 3px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s;
+  animation: fadeUp 0.4s ease both;
+}
+.kpi-card:hover { transform: translateY(-3px); }
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 10px 10px 0 0;
+}
+.kpi-card.red::before    { background: var(--red);    }
+.kpi-card.amber::before  { background: var(--amber);  }
+.kpi-card.green::before  { background: var(--green);  }
+.kpi-card.blue::before   { background: var(--blue);   }
+.kpi-card.purple::before { background: var(--purple); }
+.kpi-card.red:hover    { border-color: var(--red);    }
+.kpi-card.amber:hover  { border-color: var(--amber);  }
+.kpi-card.green:hover  { border-color: var(--green);  }
+.kpi-card.blue:hover   { border-color: var(--blue);   }
+.kpi-card.purple:hover { border-color: var(--purple); }
+.kpi-card:nth-child(1) { animation-delay: 0.05s; }
+.kpi-card:nth-child(2) { animation-delay: 0.10s; }
+.kpi-card:nth-child(3) { animation-delay: 0.15s; }
+.kpi-card:nth-child(4) { animation-delay: 0.20s; }
+.kpi-card:nth-child(5) { animation-delay: 0.25s; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.kpi-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.kpi-card.red    .kpi-value { color: var(--red);    }
+.kpi-card.amber  .kpi-value { color: var(--amber);  }
+.kpi-card.green  .kpi-value { color: var(--green);  }
+.kpi-card.blue   .kpi-value { color: var(--blue);   }
+.kpi-card.purple .kpi-value { color: var(--purple); }
+.kpi-label { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0.03em; }
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px;
+}
+.chart-card h3 {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+.chart-wrap { position: relative; height: 200px; }
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px;
+  margin-bottom: 18px;
+}
+.section-card h3 {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+.filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.filter-row label { font-size: 12px; color: var(--muted); font-family: 'Space Mono', monospace; }
+select {
+  background: var(--faint);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  outline: none;
+}
+select:focus { border-color: var(--blue); }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+thead tr { background: var(--bg); }
+thead th {
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid var(--faint); transition: background 0.15s; }
+tbody tr:hover { background: var(--surface2); }
+tbody td { padding: 11px 14px; color: #CBD5E1; white-space: nowrap; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.04em;
+}
+.badge::before { content: '●'; font-size: 7px; }
+.badge.pending   { background: #78350F22; color: #FDE68A; border: 1px solid #92400E55; }
+.badge.resolved  { background: #064E3B22; color: #6EE7B7; border: 1px solid #065F4655; }
+.badge.escalated { background: #7F1D1D22; color: #FCA5A5; border: 1px solid #99111155; }
+.badge.vax       { background: #1E3A5F;   color: var(--blue); border: 1px solid #1E40AF55; }
+.days-cell { font-family: 'Space Mono', monospace; font-weight: 700; }
+.asha-table td:nth-child(n+2) { font-family: 'Space Mono', monospace; font-size: 13px; text-align: center; }
+.asha-table th:nth-child(n+2) { text-align: center; }
+.error-box {
+  background: #7F1D1D22;
+  border: 1px solid #991B1B55;
+  border-radius: 8px;
+  padding: 20px 24px;
+  color: #FCA5A5;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--muted);
+  font-size: 13px;
+  font-family: 'Space Mono', monospace;
+}
+footer {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 18px;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.05em;
+  border-top: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="pulse-ring"></div>
+    <div class="brand-text">
+      <h1>DRISHTI</h1>
+      <p>Dropout Recognition &amp; Intelligent System for Health Tracking Interventions</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="pilot-tag">ODISHA PILOT</span>
+    <span id="lastRefresh">—</span>
+    <button class="refresh-btn" onclick="loadData()">⟳ Refresh</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loader"></div>
+    <div class="loading-text">Loading live data from register...</div>
+  </div>
+
+  <div id="dashboard" style="display:none">
+
+    <div class="kpi-grid">
+      <div class="kpi-card red">
+        <div class="kpi-value" id="kpiTotal">0</div>
+        <div class="kpi-label">Total Alerts Sent</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-value" id="kpiPending">0</div>
+        <div class="kpi-label">Pending</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-value" id="kpiResolved">0</div>
+        <div class="kpi-label">Resolved</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-value" id="kpiEscalated">0</div>
+        <div class="kpi-label">Escalated</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-value" id="kpiRate">0%</div>
+        <div class="kpi-label">Resolution Rate</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Alerts by Village</h3>
+        <div class="chart-wrap"><canvas id="villageChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Alert Status Breakdown</h3>
+        <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Most Missed Vaccines</h3>
+        <div class="chart-wrap"><canvas id="vaccineChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Alerts by ASHA Worker</h3>
+        <div class="chart-wrap"><canvas id="ashaChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>ASHA Workload Summary</h3>
+      <div class="table-wrap">
+        <table class="asha-table">
+          <thead>
+            <tr>
+              <th>ASHA Name</th>
+              <th>Total Alerts</th>
+              <th>Pending</th>
+              <th>Resolved</th>
+              <th>Escalated</th>
+              <th>Avg Days Overdue</th>
+            </tr>
+          </thead>
+          <tbody id="ashaTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>Live Alert Log</h3>
+      <div class="filter-row">
+        <label>FILTER:</label>
+        <select id="statusFilter" onchange="filterTable()">
+          <option value="All">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Resolved">Resolved</option>
+          <option value="Escalated">Escalated</option>
+        </select>
+        <select id="villageFilter" onchange="filterTable()">
+          <option value="All">All Villages</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Alert ID</th>
+              <th>Child Name</th>
+              <th>Village</th>
+              <th>ASHA</th>
+              <th>Vaccine Overdue</th>
+              <th>Days Overdue</th>
+              <th>Due Date</th>
+              <th>Alert Sent</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="alertTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  DRISHTI · PATH India · Odisha Immunisation Pilot · Powered by n8n + Google Sheets
+</footer>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbwQfLYJUh3RVcS3RnzBCBv17-y1hts4ivOWpU5644TswOzKuZ93u6oJC_3sms6Ngg9X/exec";
+
+let allAlerts = [];
+
+async function loadData() {
+  document.getElementById("loadingScreen").style.display = "flex";
+  document.getElementById("dashboard").style.display = "none";
+
+  try {
+    const res  = await fetch(API_URL);
+    const json = await res.json();
+
+    if (json.status !== "ok") throw new Error("API returned an error");
+
+    allAlerts = json.data;
+
+    populateVillageFilter(allAlerts);
+    renderDashboard(allAlerts);
+
+    document.getElementById("lastRefresh").textContent =
+      new Date().toLocaleString("en-IN", {
+        day:"2-digit", month:"short", year:"numeric",
+        hour:"2-digit", minute:"2-digit"
+      });
+
+  } catch(e) {
+    document.getElementById("loadingScreen").innerHTML =
+      '<div class="error-box"><strong>Connection Error</strong><br>' + e.message + '</div>';
+    return;
+  }
+
+  document.getElementById("loadingScreen").style.display = "none";
+  document.getElementById("dashboard").style.display = "block";
+}
+
+function populateVillageFilter(data) {
+  const sel = document.getElementById("villageFilter");
+  const villages = [...new Set(data.map(r => r["Village"]).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="All">All Villages</option>';
+  villages.forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = v; opt.textContent = v;
+    sel.appendChild(opt);
+  });
+}
+
+function renderDashboard(data) {
+  const total     = data.length;
+  const pending   = data.filter(r => r["Alert Status"] === "Pending").length;
+  const resolved  = data.filter(r => r["Alert Status"] === "Resolved").length;
+  const escalated = data.filter(r => r["Alert Status"] === "Escalated").length;
+  const rate      = total > 0 ? Math.round(resolved / total * 100) : 0;
+
+  animateCount("kpiTotal",     total);
+  animateCount("kpiPending",   pending);
+  animateCount("kpiResolved",  resolved);
+  animateCount("kpiEscalated", escalated);
+  document.getElementById("kpiRate").textContent = rate + "%";
+
+  renderCharts(data, pending, resolved, escalated);
+  renderAshaTable(data);
+  renderAlertTable(data);
+}
+
+function animateCount(id, target) {
+  const el = document.getElementById(id);
+  let current = 0;
+  const step  = Math.max(1, Math.floor(target / 20));
+  const timer = setInterval(() => {
+    current = Math.min(current + step, target);
+    el.textContent = current;
+    if (current >= target) clearInterval(timer);
+  }, 40);
+}
+
+function renderCharts(data, pending, resolved, escalated) {
+  const baseOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: "#4B6280", font: { size: 11 } }, grid: { color: "#1E2D40" } },
+      y: { ticks: { color: "#4B6280", stepSize: 1, font: { size: 11 } }, grid: { color: "#1E2D40" } }
+    }
+  };
+
+  drawBar("villageChart", countBy(data,"Village"),  ["#F43F5E","#F59E0B","#10B981","#38BDF8","#A78BFA"], baseOpts);
+  drawBar("vaccineChart", countBy(data,"Vaccine Overdue"), ["#F59E0B"], baseOpts);
+  drawBar("ashaChart",    countBy(data,"ASHA Name"), ["#A78BFA"], baseOpts);
+
+  const ctx2 = document.getElementById("statusChart");
+  if (ctx2._ci) ctx2._ci.destroy();
+  ctx2._ci = new Chart(ctx2, {
+    type: "doughnut",
+    data: {
+      labels: ["Pending","Resolved","Escalated"],
+      datasets: [{
+        data: [pending, resolved, escalated],
+        backgroundColor: ["#F59E0B33","#10B98133","#F43F5E33"],
+        borderColor:     ["#F59E0B",  "#10B981",  "#F43F5E"],
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: "65%",
+      plugins: {
+        legend: {
+          display: true, position: "bottom",
+          labels: { color: "#4B6280", font: { size: 11 }, padding: 16, boxWidth: 12 }
+        }
+      }
+    }
+  });
+}
+
+function countBy(data, key) {
+  return data.reduce((acc, r) => {
+    const v = r[key] || "Unknown";
+    acc[v] = (acc[v] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function drawBar(id, countsObj, colors, opts) {
+  const ctx = document.getElementById(id);
+  if (ctx._ci) ctx._ci.destroy();
+  const labels = Object.keys(countsObj);
+  const values = Object.values(countsObj);
+  ctx._ci = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map((_,i) => colors[i % colors.length] + "44"),
+        borderColor:     labels.map((_,i) => colors[i % colors.length]),
+        borderWidth: 1.5,
+        borderRadius: 5
+      }]
+    },
+    options: opts
+  });
+}
+
+function renderAshaTable(data) {
+  const summary = {};
+  data.forEach(r => {
+    const name = r["ASHA Name"] || "Unknown";
+    if (!summary[name]) summary[name] = { total:0, pending:0, resolved:0, escalated:0, days:[] };
+    summary[name].total++;
+    if (r["Alert Status"] === "Pending")   summary[name].pending++;
+    if (r["Alert Status"] === "Resolved")  summary[name].resolved++;
+    if (r["Alert Status"] === "Escalated") summary[name].escalated++;
+    const d = parseInt(r["Days Overdue"]);
+    if (!isNaN(d)) summary[name].days.push(d);
+  });
+
+  document.getElementById("ashaTableBody").innerHTML =
+    Object.entries(summary).map(([name, s]) => {
+      const avg = s.days.length ? Math.round(s.days.reduce((a,b)=>a+b,0)/s.days.length) : 0;
+      const avgColor = avg >= 14 ? "var(--red)" : avg >= 7 ? "var(--amber)" : "var(--green)";
+      return '<tr>' +
+        '<td style="font-weight:600">' + name + '</td>' +
+        '<td>' + s.total + '</td>' +
+        '<td style="color:var(--amber)">' + s.pending + '</td>' +
+        '<td style="color:var(--green)">' + s.resolved + '</td>' +
+        '<td style="color:var(--red)">'   + s.escalated + '</td>' +
+        '<td style="color:' + avgColor + ';font-weight:700">' + avg + ' days</td>' +
+        '</tr>';
+    }).join("");
+}
+
+function renderAlertTable(data) {
+  const tbody = document.getElementById("alertTableBody");
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state">No alerts match the current filter</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(r => {
+    const st = (r["Alert Status"] || "pending").toLowerCase();
+    const days = parseInt(r["Days Overdue"]) || 0;
+    const dc = days >= 14 ? "var(--red)" : days >= 7 ? "var(--amber)" : "var(--green)";
+    return '<tr>' +
+      '<td style="color:var(--muted);font-family:Space Mono,monospace;font-size:10px">' + (r["Alert ID"]||"") + '</td>' +
+      '<td style="font-weight:600">' + (r["Child Name"]||"") + '</td>' +
+      '<td>' + (r["Village"]||"") + '</td>' +
+      '<td>' + (r["ASHA Name"]||"") + '</td>' +
+      '<td><span class="badge vax">' + (r["Vaccine Overdue"]||"") + '</span></td>' +
+      '<td><span class="days-cell" style="color:' + dc + '">' + days + 'd</span></td>' +
+      '<td style="color:var(--muted);font-size:12px">' + (r["Due Date"]||"") + '</td>' +
+      '<td style="color:var(--muted);font-size:11px">' + (r["Alert Sent"]||"") + '</td>' +
+      '<td><span class="badge ' + st + '">' + (r["Alert Status"]||"") + '</span></td>' +
+      '<td style="color:var(--muted);font-size:11px;white-space:normal;max-width:160px">' + (r["Notes"]||"") + '</td>' +
+      '</tr>';
+  }).join("");
+}
+
+function filterTable() {
+  const sf = document.getElementById("statusFilter").value;
+  const vf = document.getElementById("villageFilter").value;
+  let filtered = allAlerts;
+  if (sf !== "All") filtered = filtered.filter(r => r["Alert Status"] === sf);
+  if (vf !== "All") filtered = filtered.filter(r => r["Village"] === vf);
+  renderAlertTable(filtered);
+}
+
+loadData();
+</script>
+</body>
+</html>
