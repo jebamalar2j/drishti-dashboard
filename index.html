@@ -412,20 +412,7 @@ footer {
       </div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>Alert ID</th>
-              <th>Child Name</th>
-              <th>Village</th>
-              <th>ASHA</th>
-              <th>Vaccine Overdue</th>
-              <th>Days Overdue</th>
-              <th>Due Date</th>
-              <th>Alert Sent</th>
-              <th>Status</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
+          
           <tbody id="alertTableBody"></tbody>
         </table>
       </div>
@@ -438,7 +425,20 @@ footer {
   DRISHTI · PATH India · Odisha Immunisation Pilot · Powered by n8n + Google Sheets
 </footer>
 
-<script>
+<script><thead>
+  <tr>
+    <th>Alert ID</th>
+    <th>Child Name</th>
+    <th>Village</th>
+    <th>ASHA</th>
+    <th>Vaccine Overdue</th>
+    <th>Days Overdue</th>
+    <th>Days Pending</th>
+    <th>Alert Sent</th>
+    <th>Status</th>
+    <th>Notes</th>
+  </tr>
+</thead>
 const API_URL = "https://script.google.com/macros/s/AKfycbwQfLYJUh3RVcS3RnzBCBv17-y1hts4ivOWpU5644TswOzKuZ93u6oJC_3sms6Ngg9X/exec";
 
 let allAlerts = [];
@@ -614,13 +614,34 @@ function renderAshaTable(data) {
 function renderAlertTable(data) {
   const tbody = document.getElementById("alertTableBody");
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state">No alerts match the current filter</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state">No alerts match the current filter</div></td></tr>';
     return;
   }
+
+  const now = new Date();
+
   tbody.innerHTML = data.map(r => {
-    const st = (r["Alert Status"] || "pending").toLowerCase();
+    const st   = (r["Alert Status"] || "pending").toLowerCase();
     const days = parseInt(r["Days Overdue"]) || 0;
-    const dc = days >= 14 ? "var(--red)" : days >= 7 ? "var(--amber)" : "var(--green)";
+    const dc   = days >= 14 ? "var(--red)" : days >= 7 ? "var(--amber)" : "var(--green)";
+
+    // Calculate days since alert was sent
+    let daysPending = "—";
+    let pendingColor = "var(--muted)";
+    if (r["Alert Sent"]) {
+      const sentDate = new Date(r["Alert Sent"]);
+      if (!isNaN(sentDate.getTime())) {
+        const diff = Math.floor((now - sentDate) / (1000 * 60 * 60 * 24));
+        daysPending = diff + "d";
+        // Only colour-flag if still unresolved
+        if (st === "pending" || st === "escalated") {
+          pendingColor = diff >= 3 ? "var(--red)" : diff >= 1 ? "var(--amber)" : "var(--green)";
+        } else {
+          pendingColor = "var(--green)";
+        }
+      }
+    }
+
     return '<tr>' +
       '<td style="color:var(--muted);font-family:Space Mono,monospace;font-size:10px">' + (r["Alert ID"]||"") + '</td>' +
       '<td style="font-weight:600">' + (r["Child Name"]||"") + '</td>' +
@@ -628,14 +649,13 @@ function renderAlertTable(data) {
       '<td>' + (r["ASHA Name"]||"") + '</td>' +
       '<td><span class="badge vax">' + (r["Vaccine Overdue"]||"") + '</span></td>' +
       '<td><span class="days-cell" style="color:' + dc + '">' + days + 'd</span></td>' +
-      '<td style="color:var(--muted);font-size:12px">' + (r["Due Date"]||"") + '</td>' +
+      '<td><span class="days-cell" style="color:' + pendingColor + '">' + daysPending + '</span></td>' +
       '<td style="color:var(--muted);font-size:11px">' + (r["Alert Sent"]||"") + '</td>' +
       '<td><span class="badge ' + st + '">' + (r["Alert Status"]||"") + '</span></td>' +
       '<td style="color:var(--muted);font-size:11px;white-space:normal;max-width:160px">' + (r["Notes"]||"") + '</td>' +
       '</tr>';
   }).join("");
 }
-
 function filterTable() {
   const sf = document.getElementById("statusFilter").value;
   const vf = document.getElementById("villageFilter").value;
